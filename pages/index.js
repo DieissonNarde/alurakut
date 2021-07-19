@@ -1,6 +1,8 @@
 import React from 'react';
-import MainGrid from '../src/components/MainGrid'
-import Box from '../src/components/Box'
+import nookies from 'nookies';
+import jwt from 'jsonwebtoken';
+import MainGrid from '../src/components/MainGrid';
+import Box from '../src/components/Box';
 import { AlurakutMenu, AlurakutProfileSidebarMenuDefault, OrkutNostalgicIconSet } from '../src/lib/AlurakutCommons';
 import { ProfileRelationsBoxWrapper } from '../src/components/ProfileRelations';
 
@@ -44,8 +46,8 @@ function ProfileRelationsBox(propriedades) {
   )
 }
 
-export default function Home() {
-  const usuarioAleatorio = 'DieissonNarde';
+export default function Home(props) {
+  const usuario = props.githubUser;
   const [comunidades, setComunidades] = React.useState([]);
 
   const pessoasFavoritas = [
@@ -61,13 +63,13 @@ export default function Home() {
   // 0 - Pegar o array de dados do github 
   React.useEffect(function() {
     // GET
-    fetch('https://api.github.com/users/peas/followers')
-    .then(function (respostaDoServidor) {
-      return respostaDoServidor.json();
-    })
-    .then(function(respostaCompleta) {
-      setSeguidores(respostaCompleta);
-    })
+    fetch(`https://api.github.com/users/${usuario}/followers`)
+      .then(function (respostaDoServidor) {
+        return respostaDoServidor.json();
+      })
+      .then(function(respostaCompleta) {
+        setSeguidores(respostaCompleta);
+      })
 
     // API GraphQL
     fetch('https://graphql.datocms.com/', {
@@ -108,7 +110,7 @@ export default function Home() {
       <MainGrid>
         {/* <Box style="grid-area: profileArea;"> */}
         <div className="profileArea" style={{ gridArea: 'profileArea' }}>
-          <ProfileSidebar githubUser={usuarioAleatorio} />
+          <ProfileSidebar githubUser={usuario} />
         </div>
         <div className="welcomeArea" style={{ gridArea: 'welcomeArea' }}>
           <Box>
@@ -212,4 +214,31 @@ export default function Home() {
       </MainGrid>
     </>
   )
+}
+
+export async function getServerSideProps(context) {
+  const cookies = nookies.get(context)
+  const token = cookies.USER_TOKEN;
+  const { isAuthenticated } = await fetch('https://alurakut.vercel.app/api/auth', {
+    headers: {
+        Authorization: token
+      }
+  })
+  .then((resposta) => resposta.json())
+
+  if(!isAuthenticated) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      }
+    }
+  }
+
+  const { githubUser } = jwt.decode(token);
+  return {
+    props: {
+      githubUser
+    }, // will be passed to the page component as props
+  }
 }
